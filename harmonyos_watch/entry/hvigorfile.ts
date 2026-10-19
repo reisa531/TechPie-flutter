@@ -15,6 +15,11 @@ hvigor.nodesEvaluated(() => {
     const sdkHome = process.env.DEVECO_SDK_HOME;
     if (!sdkHome) throw new Error('DEVECO_SDK_HOME is required for Lite minification.');
     execFileSync(process.execPath, [
+      path.join(__dirname, '../scripts/validate-signing-config.cjs'),
+      '--compiled-dir',
+      path.join(__dirname, 'build/default/intermediates/loader_out_lite/default/js'),
+    ], { stdio: 'inherit' });
+    execFileSync(process.execPath, [
       path.join(__dirname, '../scripts/minify-lite.cjs'),
       path.join(__dirname, 'build/default/intermediates/loader_out_lite/default/js'),
       path.join(sdkHome, 'default/openharmony/js/build-tools/ace-loader/node_modules/terser'),

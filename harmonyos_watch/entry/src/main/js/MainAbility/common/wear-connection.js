@@ -88,10 +88,13 @@ WatchConnection.prototype.reset = function() {
   this.ddl = []; this.ddlRevision = 0; this.ddlContent = null;
   this.ddlUntil = 0; this.accountUntil = 0; this.code = null;
   this.pending = {}; this.error = ''; this.truncated = false;
-  this.updatedAt = 0; this.publish();
+  this.updatedAt = 0; this.phoneTime = 0; this.phoneElapsed = 0; this.publish();
 };
-WatchConnection.prototype.phoneNow = function() { return this.phoneTime + this.phoneElapsed; };
+WatchConnection.prototype.phoneNow = function() {
+  return this.phoneTime + this.phoneElapsed + Math.max(0, this.now() - this.lastTick);
+};
 WatchConnection.prototype.publish = function() {
+  if (this.code && this.code.until <= this.phoneNow()) this.code = null;
   this.changed({connected: this.ready, name: this.account ? this.account.name : '',
     studentId: this.account ? this.account.studentId : '', ddl: this.ddl,
     ddlReady: this.ddlUntil > this.phoneNow(), truncated: this.truncated,
@@ -131,7 +134,7 @@ WatchConnection.prototype.request = function(kind) {
   if (this.pending[kind]) return false;
   var id = 'w' + (++this.counter);
   this.pending[kind] = {id: id, at: this.now()}; this.error = '';
-  if (kind === 'code') this.code = null;
+  // Keep the previous valid code until replacement succeeds or it expires.
   this.publish();
   this.write({v: 1, id: id, replyTo: null, sessionId: this.session,
     bindingId: this.binding, type: kind === 'code' ? 'campusCode.request' : 'sync.request',
@@ -179,6 +182,12 @@ WatchConnection.prototype.handle = function(m) {
   var b = m.body, handshake = m.type === 'session.hello' || m.type === 'session.open';
   if (handshake && (m.sessionId != null || m.bindingId != null)) return;
   if (!handshake && (!this.ready || m.sessionId !== this.session || m.bindingId !== this.binding)) return;
+  // The opening message's transit time can differ from a later snapshot's.
+  // Advance to the trusted peer's send time, but never move the clock backwards.
+  if (!handshake && integer(m.sentAtMs)) {
+    var correction = Math.max(0, m.sentAtMs - this.phoneNow());
+    this.phoneTime += correction; this.remaining -= correction;
+  }
   for (var i = 0; i < this.replies.length; i++) {
     var cached = this.replies[i];
     if (cached.id === m.id) {
@@ -213,7 +222,7 @@ WatchConnection.prototype.handle = function(m) {
   } else if (m.type === 'account.snapshot') {
     var d = b.data;
     if (!integer(b.revision) || b.revision < 1 || !integer(b.validUntilMs) ||
-        b.validUntilMs <= this.phoneTime + this.phoneElapsed || !d ||
+        b.validUntilMs <= this.phoneNow() || !d ||
         typeof d.name !== 'string' || typeof d.studentId !== 'string' ||
         !d.name.trim() || !d.studentId.trim() || characters(d.name) > 64 || characters(d.studentId) > 64) {
       this.reply(m, 'result', {status: 'error', code: 'INVALID_PAYLOAD', retryable: false}); return;

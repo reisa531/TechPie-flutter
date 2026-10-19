@@ -1,26 +1,62 @@
+const TIMEOUT_MS = 15000;
+const NETWORK_MESSAGE = "网络连接失败，请检查网络后重试";
+const timeoutMessage = (action) =>
+  action === "create"
+    ? "请求超时，提交结果尚未确认，请勿连续重复提交"
+    : "请求超时，请稍后重试";
+function withTimeout(action, run) {
+  let timer;
+  const controller =
+    typeof AbortController === "function" ? new AbortController() : null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(timeoutMessage(action)));
+      if (controller) controller.abort();
+    }, TIMEOUT_MS);
+  });
+  const work = Promise.resolve().then(() => run(controller));
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
 export async function api(action, data = {}) {
   const endpoint =
     location.hostname === "techpie-feedback.dzhes.app" ||
     location.hostname === "localhost"
       ? "/api/feedback"
       : "https://techpie-feedback.dzhes.app/api/feedback";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...data, action }),
-  });
   let result;
   try {
-    result = await response.json();
-  } catch {
-    throw new Error("服务暂时不可用，请稍后重试");
-  }
-  if (!response.ok) {
-    const error = new Error(result.error || "请求失败");
-    error.status = response.status;
+    // No automatic retry: create must not risk duplicate submissions.
+    const outcome = await withTimeout(action, async (controller) => {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, action }),
+        ...(controller ? { signal: controller.signal } : {}),
+      });
+      let json;
+      try {
+        json = await response.json();
+      } catch {
+        throw new Error("服务暂时不可用，请稍后重试");
+      }
+      return { response, json };
+    });
+    result = outcome.json;
+    if (!outcome.response.ok) {
+      const error = new Error(result.error || "请求失败");
+      error.status = outcome.response.status;
+      throw error;
+    }
+    return result;
+  } catch (error) {
+    if (error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+      throw new Error(timeoutMessage(action));
+    }
+    if (error instanceof TypeError) {
+      throw new Error(NETWORK_MESSAGE);
+    }
     throw error;
   }
-  return result;
 }
 export const el = (id) => document.getElementById(id);
 export const date = (value) =>

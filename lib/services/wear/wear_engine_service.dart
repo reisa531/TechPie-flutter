@@ -706,20 +706,36 @@ class WearEngineService extends ChangeNotifier {
     _requireReady();
     final epoch = _epoch;
     if (enabled) {
+      if (_remindersEnabled) return;
       final permissions = await requestPermissions(notify: true);
       _checkEpoch(epoch);
       if (permissions['notify'] != true) {
         throw const WearFailure('PERMISSION_DENIED');
       }
       _capabilities.add('reminder.phoneNotify');
+      try {
+        await refresh(resources: ['ddl']);
+        _checkEpoch(epoch);
+      } catch (_) {
+        if (epoch == _epoch) {
+          _capabilities.remove('reminder.phoneNotify');
+          _remindersEnabled = false;
+          try {
+            await transport.cancelReminders();
+          } catch (_) {
+            // Keep the original scheduling failure available to the caller.
+          }
+          _changed();
+        }
+        rethrow;
+      }
     } else {
-      _capabilities.remove('reminder.phoneNotify');
       await transport.cancelReminders();
       _checkEpoch(epoch);
+      _capabilities.remove('reminder.phoneNotify');
     }
     _remindersEnabled = enabled;
     _changed();
-    if (enabled) await refresh(resources: ['ddl']);
   }
 
   Future<void> _sendCode(String purpose, {required String replyTo}) async {

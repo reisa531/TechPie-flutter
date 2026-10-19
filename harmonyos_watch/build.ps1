@@ -19,6 +19,8 @@ $env:Path = "$DevEcoHome\tools\node;$DevEcoHome\tools\ohpm\bin;$DevEcoHome\tools
 
 Push-Location $PSScriptRoot
 try {
+    & $taskNode (Join-Path $PSScriptRoot 'scripts\validate-signing-config.cjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Invalid phone companion signing configuration.' }
     & $taskNode $taskHvigor --mode module -p module=entry@default -p product=default -p "buildMode=$BuildMode" assembleHap --no-daemon
     if ($LASTEXITCODE -ne 0) { throw "Hvigor failed with exit code $LASTEXITCODE" }
     $taskProfileText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'build-profile.json5'))

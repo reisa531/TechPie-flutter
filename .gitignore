@@ -101,10 +101,6 @@ dist/
 /android/WEAR_ENGINE.md
 /harmonyos_watch/README.md
 /harmonyos_watch/docs/
-/harmonyos_watch/scripts/*.test.cjs
-/harmonyos_watch/scripts/*.test.mjs
-/test/services/wear_engine_service_test.dart
-/test/services/huawei_watch_page_test.dart
 /scripts/check-android-16kb.py
 
 # Local Huawei service credentials
@@ -116,7 +112,6 @@ dist/
 # Local HarmonyOS watch development artifacts
 /harmonyos_watch/README.md
 /harmonyos_watch/docs/
-/harmonyos_watch/scripts/
 /harmonyos_watch/.gitignore
 
 /outputs/
