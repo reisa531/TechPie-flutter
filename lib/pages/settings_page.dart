@@ -280,6 +280,18 @@ class _SettingsPageState extends State<SettingsPage> {
             const Divider(),
 
             ListTile(
+              leading: const Icon(Icons.feedback_outlined),
+              title: const Text('用户反馈与工单'),
+              subtitle: const Text('提交问题、建议，或查看工单进度'),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () => unawaited(
+                launchUrl(
+                  Uri.parse('https://techpie-feedback.dzhes.app'),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+            ),
+            ListTile(
               leading: const Icon(Icons.privacy_tip_outlined),
               title: const Text('隐私政策与使用支持'),
               trailing: const Icon(Icons.open_in_new),
