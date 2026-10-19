@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import 'wear_protocol.dart';
+import 'wear_qr_matrix.dart';
 
 /// Android product services. The transport never decides whether data was applied.
 class WearEngineService extends ChangeNotifier {
@@ -88,6 +89,10 @@ class WearEngineService extends ChangeNotifier {
   Timer? _heartbeatTimer;
   bool _heartbeatBusy = false;
   Map<String, String>? _displayAccount;
+  bool _remindersEnabled = false;
+  bool get remindersEnabled => ready && _remindersEnabled;
+  bool supports(String capability) =>
+      ready && _capabilities.contains(capability);
   Map<String, String>? get displayAccount => ready && _displayAccount != null
       ? Map<String, String>.unmodifiable(_displayAccount!)
       : null;
@@ -189,6 +194,8 @@ class WearEngineService extends ChangeNotifier {
       await close();
       var epoch = _epoch;
       await requestPermissions(notify: notify);
+      _remindersEnabled =
+          notify && (_native['permission'] as Map)['notify'] == true;
       if ((_native['permission'] as Map)['p2p'] != true) {
         throw const WearFailure('PERMISSION_DENIED');
       }
@@ -256,6 +263,7 @@ class WearEngineService extends ChangeNotifier {
           'account.display',
           'ddl.display',
           'campusCode.qrBytes',
+          'campusCode.qrMatrix',
           'connection.heartbeat',
         ],
       },
@@ -277,9 +285,10 @@ class WearEngineService extends ChangeNotifier {
       'account.display',
       'ddl.display',
       'campusCode.qrBytes',
+      'campusCode.qrMatrix',
       'connection.heartbeat',
     });
-    if ((_native['permission'] as Map)['notify'] == true) {
+    if (_remindersEnabled && (_native['permission'] as Map)['notify'] == true) {
       _capabilities.add('reminder.phoneNotify');
     }
     final max = body['maxQrPayloadBytes'];
@@ -693,9 +702,30 @@ class WearEngineService extends ChangeNotifier {
   Future<String> sendReminder(String reminderId) =>
       transport.sendReminder(reminderId);
 
+  Future<void> setRemindersEnabled(bool enabled) async {
+    _requireReady();
+    final epoch = _epoch;
+    if (enabled) {
+      final permissions = await requestPermissions(notify: true);
+      _checkEpoch(epoch);
+      if (permissions['notify'] != true) {
+        throw const WearFailure('PERMISSION_DENIED');
+      }
+      _capabilities.add('reminder.phoneNotify');
+    } else {
+      _capabilities.remove('reminder.phoneNotify');
+      await transport.cancelReminders();
+      _checkEpoch(epoch);
+    }
+    _remindersEnabled = enabled;
+    _changed();
+    if (enabled) await refresh(resources: ['ddl']);
+  }
+
   Future<void> _sendCode(String purpose, {required String replyTo}) async {
     _requireReady();
-    if (!_capabilities.contains('campusCode.qrBytes')) {
+    if (!_capabilities.contains('campusCode.qrBytes') &&
+        !_capabilities.contains('campusCode.qrMatrix')) {
       throw const WearFailure('UNSUPPORTED_FORMAT');
     }
     if (_codeBusy ||
@@ -737,6 +767,8 @@ class WearEngineService extends ChangeNotifier {
           'validUntilMs': expiry,
           'payloadEncoding': 'base64',
           'payload': base64Encode(code.bytes),
+          if (_capabilities.contains('campusCode.qrMatrix'))
+            ...wearQrMatrix(code.bytes),
         },
         replyTo: replyTo,
         retry: false,
@@ -807,6 +839,8 @@ class WearEngineService extends ChangeNotifier {
       }
     }
     _invalidate('PEER_NOT_READY');
+    _remindersEnabled = false;
+    await transport.cancelReminders();
     await transport.close();
     _native['device'] = 'disconnected';
     _changed();

@@ -118,3 +118,5 @@ dist/
 /harmonyos_watch/docs/
 /harmonyos_watch/scripts/
 /harmonyos_watch/.gitignore
+
+/outputs/
