@@ -13,6 +13,7 @@ import 'models/third_party_account.dart';
 import 'services/assignment_service.dart';
 import 'services/auth_service.dart';
 import 'services/campus_card_service.dart';
+import 'services/deadline_widget_service.dart';
 import 'services/debug_logger.dart';
 import 'services/ecard_bind_service.dart';
 import 'services/ecard_widget_service.dart';
@@ -65,9 +66,13 @@ void main(List<String> args) async {
 
 Future<void> _realMain(SharedPreferences prefs) async {
   final storageService = StorageService(prefs);
+  configureAppProxy(storageService.appProxyEnabled ? storageService.appProxyUrl : '');
   final debugLogger = DebugLogger()..enabled = storageService.debugMode;
   final httpClient = LoggingHttpClient(debugLogger);
-  final uniAuthService = UniAuthService(logger: debugLogger);
+  final uniAuthService = UniAuthService(
+    logger: debugLogger,
+    proxyUrl: storageService.appProxyEnabled ? storageService.appProxyUrl : '',
+  );
   final authService = AuthService(
     storageService,
     httpClient,
@@ -106,6 +111,9 @@ Future<void> _realMain(SharedPreferences prefs) async {
     thirdPartyAuthService,
     scheduleService,
   );
+  final deadlineWidgetService = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux
+      ? DeadlineWidgetService(assignmentService, enabled: storageService.deadlineWidgetsEnabled)
+      : null;
   final wearEngineService = isAndroid()
       ? WearEngineService(
           transport: AndroidWearTransport(),
@@ -204,10 +212,12 @@ Future<void> _realMain(SharedPreferences prefs) async {
       ecardBindService: ecardBindService,
       ecardWidgetService: ecardWidgetService,
       wearEngineService: wearEngineService,
+      deadlineWidgetService: deadlineWidgetService,
     ),
   );
 
   bootMark('cached data ready');
+  deadlineWidgetService?.initialize();
 
   oaGymService.startProfileSync();
   unawaited(campusCardService.refreshAccount());
@@ -356,6 +366,7 @@ class TechPieApp extends StatefulWidget {
   final EcardBindService ecardBindService;
   final EcardWidgetService? ecardWidgetService;
   final WearEngineService? wearEngineService;
+  final DeadlineWidgetService? deadlineWidgetService;
 
   const TechPieApp({
     super.key,
@@ -375,6 +386,7 @@ class TechPieApp extends StatefulWidget {
     required this.ecardBindService,
     this.ecardWidgetService,
     this.wearEngineService,
+    this.deadlineWidgetService,
   });
 
   @override
@@ -398,11 +410,16 @@ class _TechPieAppState extends State<TechPieApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     unawaited(_checkForUpdatesQuietly());
     widget.ecardWidgetService?.setOpenPayHandler(_openEcardPayCode);
+    widget.deadlineWidgetService?.setOpenHandler(_openDeadlines);
   }
 
   @override
   void didUpdateWidget(covariant TechPieApp oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadlineWidgetService != widget.deadlineWidgetService) {
+      oldWidget.deadlineWidgetService?.clearOpenHandler();
+      widget.deadlineWidgetService?.setOpenHandler(_openDeadlines);
+    }
     if (oldWidget.ecardWidgetService == widget.ecardWidgetService) return;
     oldWidget.ecardWidgetService?.clearOpenPayHandler();
     widget.ecardWidgetService?.setOpenPayHandler(_openEcardPayCode);
@@ -412,6 +429,7 @@ class _TechPieAppState extends State<TechPieApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.ecardWidgetService?.clearOpenPayHandler();
+    widget.deadlineWidgetService?.dispose();
     widget.campusCardService.dispose();
     widget.wearEngineService?.dispose();
     super.dispose();
@@ -425,6 +443,11 @@ class _TechPieAppState extends State<TechPieApp> with WidgetsBindingObserver {
       unawaited(widget.authService.tryRenewSession());
       unawaited(_checkForUpdatesQuietly());
     }
+  }
+
+  Future<void> _openDeadlines() async {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    appShellPendingDeadlines.value = true;
   }
 
   /// The check nobody asked for.
@@ -452,8 +475,10 @@ class _TechPieAppState extends State<TechPieApp> with WidgetsBindingObserver {
     }
     if (release == null || !mounted) return;
 
+    final dialogContext = _navigatorKey.currentState?.overlay?.context;
+    if (dialogContext == null || !dialogContext.mounted) return;
     _promptedThisLaunch = true;
-    await showUpdateAvailableDialog(context, release);
+    await showUpdateAvailableDialog(dialogContext, release);
   }
 
   Future<void> _openEcardPayCode() async {
@@ -498,6 +523,7 @@ class _TechPieAppState extends State<TechPieApp> with WidgetsBindingObserver {
         ecardBindService: widget.ecardBindService,
         ecardWidgetService: widget.ecardWidgetService,
         wearEngineService: widget.wearEngineService,
+        deadlineWidgetService: widget.deadlineWidgetService,
         child: MaterialApp(
           navigatorKey: _navigatorKey,
           scaffoldMessengerKey: rootMessengerKey,
