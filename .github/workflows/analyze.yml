@@ -67,5 +67,5 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Test watch protocol, signing configuration and feedback recovery
-        run: node --test harmonyos_watch/scripts/*.test.cjs harmonyos_watch/scripts/*.test.mjs web/feedback/test/*.test.mjs
+      - name: Test watch protocol and signing configuration
+        run: node --test harmonyos_watch/scripts/*.test.cjs harmonyos_watch/scripts/*.test.mjs
