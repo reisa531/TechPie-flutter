@@ -128,9 +128,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify watch and feedback behavior before release
+      - name: Verify watch behavior before release
         if: steps.plan.outputs.skip == 'false'
-        run: node --test harmonyos_watch/scripts/*.test.cjs harmonyos_watch/scripts/*.test.mjs web/feedback/test/*.test.mjs
+        run: node --test harmonyos_watch/scripts/*.test.cjs harmonyos_watch/scripts/*.test.mjs
 
   tag:
     name: Tag the release

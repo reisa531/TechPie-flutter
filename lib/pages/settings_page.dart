@@ -26,7 +26,6 @@ import '../widgets/adaptive_switch.dart';
 import '../widgets/app_shell/app_shell_metrics.dart';
 import '../widgets/blurred_app_bar.dart';
 import '../widgets/desktop_popup.dart';
-import '../widgets/feedback_entry.dart';
 import '../widgets/ios/ios_native_navigation_bar.dart';
 import '../widgets/update_dialogs.dart';
 import 'debug_log_page.dart';
@@ -334,7 +333,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const Divider(),
 
-            const FeedbackEntry(),
             ListTile(
               leading: const Icon(Icons.privacy_tip_outlined),
               title: const Text('隐私政策与使用支持'),
