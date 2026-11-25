@@ -27,6 +27,15 @@ This phase uses lecture recordings to identify problems that usage counts alone 
 - Show the count and percentage of visits that end within 30 seconds. Break these down by whether the recording list loaded or an error appeared before exit.
 - Measure time to the first usable recording list. Compare median and 95th-percentile load times and error rates by app version and platform to spot regressions.
 
+## M4 - EGATE Student Services
+
+Students will be able to use four EGATE services from TechPie. Each feature is awaiting deidentified examples from the school system.
+
+- **Student leave.** Submit a leave request and track its approval. Offer editing, withdrawal and deletion when the request status permits them. Confirm those rules against sample forms and approval records. [#234](https://github.com/HeZeBang/TechPie-flutter/issues/234)
+- **Holiday departure and return.** Reuse the destination from a previous registration, review the details and submit the current holiday form. Verify the fields and the submission receipt against a current form and response. [#239](https://github.com/HeZeBang/TechPie-flutter/issues/239)
+- **Work-study and teaching assistant jobs.** Browse openings and apply to either program. Verify the application fields and the notification steps for each program. [#242](https://github.com/HeZeBang/TechPie-flutter/issues/242)
+- **Counseling appointments.** View available slots, book one and check personal appointments. Keep appointment data in memory and clear it when the student leaves the page or switches accounts. Verify how EGATE identifies an available slot and confirms a booking. [#243](https://github.com/HeZeBang/TechPie-flutter/issues/243)
+
 
 
 
